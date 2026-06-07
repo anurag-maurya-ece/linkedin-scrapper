@@ -7,10 +7,13 @@ let extractedData = [];
 let targetType = 'profiles'; // 'profiles' or 'companies'
 
 // DOM Elements
+const apiProviderSelect = document.getElementById('api-provider');
+const apiTokenLabel = document.getElementById('api-token-label');
 const apiTokenInput = document.getElementById('api-token');
 const toggleTokenBtn = document.getElementById('toggle-token-btn');
 const targetProfilesDiv = document.getElementById('target-profiles');
 const targetCompaniesDiv = document.getElementById('target-companies');
+const targetTypeGroup = document.getElementById('target-type-group');
 const profileModeGroup = document.getElementById('profile-mode-group');
 const profileModeSelect = document.getElementById('profile-mode');
 const scraperEngineGroup = document.getElementById('scraper-engine-group');
@@ -94,12 +97,40 @@ function setTargetType(type) {
 
 // Auto-switch target type based on URL pasted
 urlsList.addEventListener('input', () => {
+  if (apiProviderSelect.value !== 'apify') return; // only auto-switch for Apify
   const text = urlsList.value.trim();
   if (text.includes('/company/')) {
     setTargetType('companies');
   } else if (text.includes('/in/')) {
     setTargetType('profiles');
   }
+});
+
+// Switch API Provider type
+apiProviderSelect.addEventListener('change', () => {
+  const provider = apiProviderSelect.value;
+  
+  if (provider === 'apify') {
+    apiTokenLabel.textContent = 'Apify API Token';
+    apiTokenInput.placeholder = 'Enter Apify API Token';
+    targetTypeGroup.style.display = 'flex';
+    setTargetType(targetType);
+  } else {
+    // Apollo / Lusha only work for profiles
+    apiTokenLabel.textContent = provider === 'apollo' ? 'Apollo.io API Key' : 'Lusha API Key';
+    apiTokenInput.placeholder = provider === 'apollo' ? 'Enter Apollo API Key' : 'Enter Lusha API Key';
+    targetTypeGroup.style.display = 'none';
+    scraperEngineGroup.style.display = 'none';
+    profileModeGroup.style.display = 'none';
+    
+    // Force target type to profiles
+    targetType = 'profiles';
+    urlsLabel.textContent = 'LinkedIn Profile URLs (One per line)';
+    urlsList.placeholder = 'https://www.linkedin.com/in/williamhgates\nhttps://www.linkedin.com/in/example-profile';
+    profilesTable.style.display = 'table';
+    companiesTable.style.display = 'none';
+  }
+  clearResults();
 });
 
 // Show/hide profile modes based on engine selection
@@ -137,11 +168,12 @@ function logMessage(message, isError = false) {
 
 // Start Scraper logic
 startBtn.addEventListener('click', async () => {
+  const provider = apiProviderSelect.value;
   const token = apiTokenInput.value.trim();
   const urlsText = urlsList.value.trim();
   
   if (!token) {
-    alert('Please enter your Apify API Token!');
+    alert(`Please enter your ${provider === 'apify' ? 'Apify API Token' : provider === 'apollo' ? 'Apollo API Key' : 'Lusha API Key'}!`);
     return;
   }
   
@@ -158,17 +190,56 @@ startBtn.addEventListener('click', async () => {
 
   // UI Updates for active scraping
   startBtn.disabled = true;
-  stopBtn.style.display = 'inline-flex';
+  stopBtn.style.display = provider === 'apify' ? 'inline-flex' : 'none';
   apiTokenInput.disabled = true;
   urlsList.disabled = true;
   profileModeSelect.disabled = true;
   scraperEngineSelect.disabled = true;
+  apiProviderSelect.disabled = true;
   progressContainer.style.display = 'block';
   logBox.innerHTML = '';
   
-  updateStatus('running', 'Initializing run...');
+  updateStatus('running', 'Initializing...');
   clearResults();
 
+  if (provider !== 'apify') {
+    // Direct enrichment via Apollo/Lusha Serverless API
+    logMessage(`Enriching ${urls.length} profile(s) via ${provider.toUpperCase()} API...`);
+    updateStatus('running', `Enriching via ${provider.toUpperCase()}...`);
+    
+    try {
+      const response = await fetch('/api/enrich', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider: provider,
+          apiKey: token,
+          linkedinUrls: urls
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(`Serverless function not found. Please deploy this project to Vercel or run it using 'vercel dev' locally to enable Apollo/Lusha, or use Apify which runs directly in the browser!`);
+        }
+        const errText = await response.text();
+        throw new Error(`Enrichment failed: ${response.status} - ${errText}`);
+      }
+
+      extractedData = await response.json();
+      logMessage(`Successfully retrieved ${extractedData.length} records.`);
+      populateResultsTable();
+      resetUI('success', `Completed. Found ${extractedData.length} entries.`);
+    } catch (err) {
+      logMessage(err.message, true);
+      resetUI('error', 'Enrichment failed');
+    }
+    return;
+  }
+
+  // Apify Flow
   try {
     let actorId, payload;
     const engine = scraperEngineSelect.value;
@@ -204,8 +275,8 @@ startBtn.addEventListener('click', async () => {
     logMessage(`Triggering Apify actor run with ${urls.length} target URLs...`);
     
     // Call Apify API to start the run
-    const triggerUrl = `https://api.apify.com/v2/actors/${actorId}/runs?token=${token}`;
-    const response = await fetch(triggerUrl, {
+    const triggerUrl = `https://api.apify.com/v2/actors/${actorId}/runs?token={token}`;
+    const response = await fetch(triggerUrl.replace('{token}', token), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -479,6 +550,7 @@ function resetUI(statusType, statusMsg) {
   urlsList.disabled = false;
   profileModeSelect.disabled = false;
   scraperEngineSelect.disabled = false;
+  apiProviderSelect.disabled = false;
   progressContainer.style.display = 'none';
   
   updateStatus(statusType, statusMsg);

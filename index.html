@@ -32,9 +32,19 @@
             Scraper Configuration
           </h2>
 
-          <!-- Apify Token Input -->
+          <!-- API Provider Selector -->
           <div class="form-group">
-            <label for="api-token">Apify API Token</label>
+            <label for="api-provider">API Provider</label>
+            <select id="api-provider">
+              <option value="apify">Apify Platform (Scraping + Search)</option>
+              <option value="apollo">Apollo.io (Direct Contact Enrichment)</option>
+              <option value="lusha">Lusha (Direct Contact Enrichment)</option>
+            </select>
+          </div>
+
+          <!-- Token Input -->
+          <div class="form-group">
+            <label for="api-token" id="api-token-label">Apify API Token</label>
             <div class="input-wrapper">
               <input type="password" id="api-token" placeholder="Enter Apify API Token" value="">
               <button class="toggle-password" id="toggle-token-btn" type="button">Show</button>
@@ -42,7 +52,7 @@
           </div>
 
           <!-- Target Type Selector -->
-          <div class="form-group">
+          <div class="form-group" id="target-type-group">
             <label>Extraction Target</label>
             <div class="radio-group">
               <div class="radio-box selected" id="target-profiles">
