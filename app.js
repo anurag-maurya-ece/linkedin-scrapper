@@ -57,6 +57,8 @@ function setTargetType(type) {
   if (type === 'profiles') {
     targetProfilesDiv.classList.add('selected');
     targetCompaniesDiv.classList.remove('selected');
+    const radio = document.querySelector('input[name="target_type"][value="profiles"]');
+    if (radio) radio.checked = true;
     profileModeGroup.style.display = 'flex';
     urlsLabel.textContent = 'LinkedIn Profile URLs (One per line)';
     urlsList.placeholder = 'https://www.linkedin.com/in/williamhgates\nhttps://www.linkedin.com/in/example-profile';
@@ -65,6 +67,8 @@ function setTargetType(type) {
   } else {
     targetProfilesDiv.classList.remove('selected');
     targetCompaniesDiv.classList.add('selected');
+    const radio = document.querySelector('input[name="target_type"][value="companies"]');
+    if (radio) radio.checked = true;
     profileModeGroup.style.display = 'none';
     urlsLabel.textContent = 'LinkedIn Company URLs (One per line)';
     urlsList.placeholder = 'https://www.linkedin.com/company/thorogood/\nhttps://www.linkedin.com/company/google';
@@ -75,6 +79,16 @@ function setTargetType(type) {
   // Clear previous outputs if we switch tabs
   clearResults();
 }
+
+// Auto-switch target type based on URL pasted
+urlsList.addEventListener('input', () => {
+  const text = urlsList.value.trim();
+  if (text.includes('/company/')) {
+    setTargetType('companies');
+  } else if (text.includes('/in/')) {
+    setTargetType('profiles');
+  }
+});
 
 function clearResults() {
   profilesTbody.innerHTML = '';
@@ -466,12 +480,96 @@ function convertToCSV(objArray) {
   return csvRows.join('\n');
 }
 
+// Flattening helper for clean exports
+function getFlattenedData(data, type) {
+  return data.map(item => {
+    if (type === 'profiles') {
+      const name = item.name || item.fullName || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Unknown';
+      const title = item.occupation || item.headline || 'No Title';
+      const company = item.currentCompany || (item.experience && item.experience[0] && item.experience[0].companyName) || 'No Company';
+      const location = item.locationName || item.location || 'N/A';
+      const phone = (item.phone && item.phone.number) ? item.phone.number : (item.phone || '');
+      
+      // Skills
+      let skills = '';
+      if (item.skills && Array.isArray(item.skills)) {
+        skills = item.skills.map(s => typeof s === 'string' ? s : (s.name || '')).filter(Boolean).join(', ');
+      }
+      
+      // Education
+      let education = '';
+      if (item.education && Array.isArray(item.education)) {
+        education = item.education.map(e => `${e.schoolName || ''} (${e.degreeName || ''})`).filter(Boolean).join(' | ');
+      }
+      
+      // Experience
+      let experience = '';
+      if (item.experience && Array.isArray(item.experience)) {
+        experience = item.experience.map(exp => `${exp.title || ''} at ${exp.companyName || ''}`).filter(Boolean).join(' | ');
+      }
+
+      return {
+        "Full Name": name,
+        "LinkedIn URL": item.linkedinUrl || item.url || '',
+        "Title": title,
+        "Current Company": company,
+        "Email": item.email || '',
+        "Phone": phone,
+        "Location": location,
+        "Skills": skills,
+        "Education": education,
+        "Work History": experience,
+        "About": item.about || item.summary || ''
+      };
+    } else {
+      const phone = (item.phone && item.phone.number) ? item.phone.number : (item.phone || '');
+      const foundedYear = item.foundedOn ? (item.foundedOn.year || item.foundedOn) : '';
+      const employeeCount = item.employeeCount || (item.employeeCountRange ? `${item.employeeCountRange.start}-${item.employeeCountRange.end}` : '');
+      const followerCount = item.followerCount || '';
+      
+      // Headquarters Location
+      let hqAddress = '';
+      let allLocations = '';
+      if (item.locations && Array.isArray(item.locations)) {
+        const hqLoc = item.locations.find(l => l.headquarter) || item.locations[0];
+        if (hqLoc) {
+          const parts = [hqLoc.line1, hqLoc.city, hqLoc.geographicArea, hqLoc.countryFull || hqLoc.country];
+          hqAddress = parts.filter(Boolean).join(', ');
+        }
+        allLocations = item.locations.map(l => l.city).filter(Boolean).join(', ');
+      }
+
+      // Specialties
+      let specs = '';
+      if (item.specialities && Array.isArray(item.specialities)) {
+        specs = item.specialities.join(', ');
+      }
+
+      return {
+        "Company Name": item.name || '',
+        "LinkedIn URL": item.linkedinUrl || item.url || '',
+        "Website": item.website || '',
+        "Tagline": item.tagline || '',
+        "Phone": phone,
+        "Employee Count": employeeCount,
+        "Follower Count": followerCount,
+        "Founded Year": foundedYear,
+        "Headquarters Address": hqAddress,
+        "All Office Locations": allLocations,
+        "Specialties": specs,
+        "Description": item.description || ''
+      };
+    }
+  });
+}
+
 // Download JSON functionality
 downloadJsonBtn.addEventListener('click', () => {
   if (extractedData.length === 0) return;
   
+  const flattened = getFlattenedData(extractedData, targetType);
   const filename = `linkedin_${targetType}_${new Date().toISOString().split('T')[0]}.json`;
-  const blob = new Blob([JSON.stringify(extractedData, null, 2)], { type: 'application/json' });
+  const blob = new Blob([JSON.stringify(flattened, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   
   const a = document.createElement('a');
@@ -487,8 +585,9 @@ downloadJsonBtn.addEventListener('click', () => {
 downloadCsvBtn.addEventListener('click', () => {
   if (extractedData.length === 0) return;
   
+  const flattened = getFlattenedData(extractedData, targetType);
   const filename = `linkedin_${targetType}_${new Date().toISOString().split('T')[0]}.csv`;
-  const csvContent = convertToCSV(extractedData);
+  const csvContent = convertToCSV(flattened);
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   
