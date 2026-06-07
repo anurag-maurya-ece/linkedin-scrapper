@@ -1,0 +1,6 @@
+# Local test results
+company_results.json
+scraped_results.json
+links.json
+exports.json
+*.log
