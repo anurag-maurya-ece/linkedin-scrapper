@@ -13,6 +13,8 @@ const targetProfilesDiv = document.getElementById('target-profiles');
 const targetCompaniesDiv = document.getElementById('target-companies');
 const profileModeGroup = document.getElementById('profile-mode-group');
 const profileModeSelect = document.getElementById('profile-mode');
+const scraperEngineGroup = document.getElementById('scraper-engine-group');
+const scraperEngineSelect = document.getElementById('scraper-engine');
 const urlsList = document.getElementById('urls-list');
 const urlsLabel = document.getElementById('urls-label');
 const startBtn = document.getElementById('start-btn');
@@ -59,7 +61,14 @@ function setTargetType(type) {
     targetCompaniesDiv.classList.remove('selected');
     const radio = document.querySelector('input[name="target_type"][value="profiles"]');
     if (radio) radio.checked = true;
-    profileModeGroup.style.display = 'flex';
+    
+    scraperEngineGroup.style.display = 'flex';
+    if (scraperEngineSelect.value === 'harvestapi') {
+      profileModeGroup.style.display = 'flex';
+    } else {
+      profileModeGroup.style.display = 'none';
+    }
+    
     urlsLabel.textContent = 'LinkedIn Profile URLs (One per line)';
     urlsList.placeholder = 'https://www.linkedin.com/in/williamhgates\nhttps://www.linkedin.com/in/example-profile';
     profilesTable.style.display = 'table';
@@ -69,7 +78,10 @@ function setTargetType(type) {
     targetCompaniesDiv.classList.add('selected');
     const radio = document.querySelector('input[name="target_type"][value="companies"]');
     if (radio) radio.checked = true;
+    
+    scraperEngineGroup.style.display = 'none';
     profileModeGroup.style.display = 'none';
+    
     urlsLabel.textContent = 'LinkedIn Company URLs (One per line)';
     urlsList.placeholder = 'https://www.linkedin.com/company/thorogood/\nhttps://www.linkedin.com/company/google';
     profilesTable.style.display = 'none';
@@ -87,6 +99,17 @@ urlsList.addEventListener('input', () => {
     setTargetType('companies');
   } else if (text.includes('/in/')) {
     setTargetType('profiles');
+  }
+});
+
+// Show/hide profile modes based on engine selection
+scraperEngineSelect.addEventListener('change', () => {
+  if (targetType === 'profiles') {
+    if (scraperEngineSelect.value === 'harvestapi') {
+      profileModeGroup.style.display = 'flex';
+    } else {
+      profileModeGroup.style.display = 'none';
+    }
   }
 });
 
@@ -139,6 +162,7 @@ startBtn.addEventListener('click', async () => {
   apiTokenInput.disabled = true;
   urlsList.disabled = true;
   profileModeSelect.disabled = true;
+  scraperEngineSelect.disabled = true;
   progressContainer.style.display = 'block';
   logBox.innerHTML = '';
   
@@ -147,19 +171,28 @@ startBtn.addEventListener('click', async () => {
 
   try {
     let actorId, payload;
+    const engine = scraperEngineSelect.value;
 
     if (targetType === 'profiles') {
-      actorId = 'harvestapi~linkedin-profile-scraper';
-      const modeText = profileModeSelect.value === 'with-email' 
-        ? 'Profile details + email search ($10 per 1k)' 
-        : 'Profile details no email ($4 per 1k)';
-      
-      payload = {
-        profileScraperMode: modeText,
-        queries: urls
-      };
-      logMessage(`Selected: LinkedIn Profile Scraper`);
-      logMessage(`Mode: ${modeText}`);
+      if (engine === 'dev_fusion') {
+        actorId = 'dev_fusion~linkedin-profile-scraper';
+        payload = {
+          linkedinUrls: urls
+        };
+        logMessage(`Selected: DevFusion Scraper (No Cookies)`);
+      } else {
+        actorId = 'harvestapi~linkedin-profile-scraper';
+        const modeText = profileModeSelect.value === 'with-email' 
+          ? 'Profile details + email search ($10 per 1k)' 
+          : 'Profile details no email ($4 per 1k)';
+        
+        payload = {
+          profileScraperMode: modeText,
+          queries: urls
+        };
+        logMessage(`Selected: HarvestAPI Scraper (No Cookies)`);
+        logMessage(`Mode: ${modeText}`);
+      }
     } else {
       actorId = 'harvestapi~linkedin-company';
       payload = {
@@ -445,6 +478,7 @@ function resetUI(statusType, statusMsg) {
   apiTokenInput.disabled = false;
   urlsList.disabled = false;
   profileModeSelect.disabled = false;
+  scraperEngineSelect.disabled = false;
   progressContainer.style.display = 'none';
   
   updateStatus(statusType, statusMsg);
