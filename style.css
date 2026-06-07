@@ -456,6 +456,59 @@ td a:hover {
   border: 1px solid rgba(16, 185, 129, 0.2);
 }
 
+.badge-skill {
+  background: rgba(139, 92, 246, 0.08);
+  color: #a78bfa;
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  margin-right: 4px;
+  margin-bottom: 4px;
+  text-transform: none;
+  font-size: 0.65rem;
+}
+
+.badge-spec {
+  background: rgba(59, 130, 246, 0.08);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  margin-right: 4px;
+  margin-bottom: 4px;
+  text-transform: none;
+  font-size: 0.65rem;
+}
+
+.profile-meta-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.profile-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  object-fit: cover;
+}
+
+.company-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  object-fit: cover;
+}
+
+.truncate-text {
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
 .empty-state {
   text-align: center;
   padding: 4rem 2rem;

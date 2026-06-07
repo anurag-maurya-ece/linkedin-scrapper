@@ -294,30 +294,61 @@ function populateResultsTable() {
       const name = item.name || item.fullName || `${item.firstName || ''} ${item.lastName || ''}`.trim() || 'Unknown';
       const title = item.occupation || item.headline || 'No Title';
       const company = item.currentCompany || (item.experience && item.experience[0] && item.experience[0].companyName) || 'No Company';
+      const location = item.locationName || item.location || 'N/A';
+      const avatar = item.profilePicUrl || item.avatar || 'https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y';
       
       // Contact Info display
       let contactHtml = '';
       if (item.email) {
-        contactHtml += `<span class="badge badge-email">📧 ${item.email}</span> `;
+        contactHtml += `<div style="margin-bottom: 4px;"><span class="badge badge-email">📧 ${item.email}</span></div>`;
       }
-      if (item.phone && item.phone.number) {
-        contactHtml += `<span>📞 ${item.phone.number}</span> `;
-      } else if (item.phone && typeof item.phone === 'string') {
-        contactHtml += `<span>📞 ${item.phone}</span> `;
+      const phoneNumber = (item.phone && item.phone.number) ? item.phone.number : (item.phone || null);
+      if (phoneNumber) {
+        contactHtml += `<div style="font-size: 0.8rem; color: var(--text-primary);">📞 ${phoneNumber}</div>`;
       }
       if (!contactHtml) {
         contactHtml = '<span style="color: var(--text-secondary);">None found</span>';
+      }
+
+      // About & Skills display
+      let aboutPreview = item.about || item.summary || '';
+      let skillsHtml = '';
+      if (item.skills && Array.isArray(item.skills)) {
+        skillsHtml = item.skills.slice(0, 3).map(s => {
+          const sName = typeof s === 'string' ? s : (s.name || '');
+          return sName ? `<span class="badge badge-skill">${sName}</span>` : '';
+        }).join('');
+      }
+
+      let aboutHtml = '';
+      if (aboutPreview) {
+        aboutHtml = `<div class="truncate-text" title="${aboutPreview.replace(/"/g, '&quot;')}">${aboutPreview}</div>`;
+      }
+      if (skillsHtml) {
+        aboutHtml += `<div style="margin-top: 4px; display: flex; flex-wrap: wrap;">${skillsHtml}</div>`;
+      }
+      if (!aboutHtml) {
+        aboutHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">N/A</span>';
       }
 
       const linkedin = item.linkedinUrl || item.url || '#';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><strong>${name}</strong></td>
-        <td>${title}</td>
-        <td>${company}</td>
+        <td>
+          <div class="profile-meta-cell">
+            <img class="profile-avatar" src="${avatar}" onerror="this.src='https://www.gravatar.com/avatar/00000000000000000000000000000000?d=mp&f=y'" alt="avatar" />
+            <strong>${name}</strong>
+          </div>
+        </td>
+        <td>
+          <div style="font-weight: 500;">${title}</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary);">${company}</div>
+        </td>
+        <td>${location}</td>
         <td>${contactHtml}</td>
-        <td><a href="${linkedin}" target="_blank">View 🔗</a></td>
+        <td>${aboutHtml}</td>
+        <td><a class="btn export-btn" href="${linkedin}" target="_blank">View 🔗</a></td>
       `;
       profilesTbody.appendChild(tr);
     });
@@ -328,17 +359,58 @@ function populateResultsTable() {
       const tagline = item.tagline || 'No Tagline';
       const website = item.website || 'No website';
       const phone = (item.phone && item.phone.number) ? item.phone.number : (item.phone || 'No phone');
-      const employees = item.employeeCount || (item.employeeCountRange ? `${item.employeeCountRange.start}-${item.employeeCountRange.end}` : 'N/A');
+      
+      const employeeCount = item.employeeCount || (item.employeeCountRange ? `${item.employeeCountRange.start}-${item.employeeCountRange.end}` : 'N/A');
+      const followerCount = item.followerCount ? `${item.followerCount.toLocaleString()} followers` : 'N/A';
+      const foundedYear = item.foundedOn ? (item.foundedOn.year || item.foundedOn) : null;
+      
+      const logo = item.logo || 'https://media.licdn.com/dms/image/v2/C4E0BAQHezipI1sPADg/company-logo_400_400/company-logo_400_400/0/1674655694728/thorogood_logo';
+
+      // HQ Location Parsing
+      let hq = 'N/A';
+      if (item.locations && Array.isArray(item.locations)) {
+        const hqLoc = item.locations.find(l => l.headquarter) || item.locations[0];
+        if (hqLoc) {
+          hq = hqLoc.parsed ? hqLoc.parsed.text : `${hqLoc.city || ''}, ${hqLoc.country || ''}`.trim() || 'N/A';
+        }
+      }
+
+      // Specialties
+      let specsHtml = '';
+      if (item.specialities && Array.isArray(item.specialities)) {
+        specsHtml = item.specialities.slice(0, 3).map(s => `<span class="badge badge-spec">${s}</span>`).join('');
+      }
+      if (!specsHtml) {
+        specsHtml = '<span style="color: var(--text-secondary); font-size: 0.8rem;">N/A</span>';
+      }
+
       const linkedin = item.linkedinUrl || item.url || '#';
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td><strong>${name}</strong></td>
-        <td>${tagline}</td>
-        <td>${website !== 'No website' ? `<a href="${website}" target="_blank">${website.replace('http://', '').replace('https://', '')}</a>` : website}</td>
-        <td>${phone}</td>
-        <td>${employees}</td>
-        <td><a href="${linkedin}" target="_blank">View 🔗</a></td>
+        <td>
+          <div class="profile-meta-cell">
+            <img class="company-logo" src="${logo}" onerror="this.style.display='none'" alt="logo" />
+            <div>
+              <strong>${name}</strong>
+              <div style="font-size: 0.75rem; color: var(--text-secondary);" class="truncate-text" title="${tagline.replace(/"/g, '&quot;')}">${tagline}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div>${website !== 'No website' ? `<a href="${website}" target="_blank">${website.replace('http://', '').replace('https://', '')}</a>` : website}</div>
+          <div style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 4px;">📞 ${phone}</div>
+        </td>
+        <td>
+          <div style="font-weight: 500;">👥 ${employeeCount} emps</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">${followerCount}</div>
+          ${foundedYear ? `<div style="font-size: 0.75rem; color: var(--text-secondary);">Est. ${foundedYear}</div>` : ''}
+        </td>
+        <td>${hq}</td>
+        <td>
+          <div style="display: flex; flex-wrap: wrap; max-width: 200px;">${specsHtml}</div>
+        </td>
+        <td><a class="btn export-btn" href="${linkedin}" target="_blank">View 🔗</a></td>
       `;
       companiesTbody.appendChild(tr);
     });
